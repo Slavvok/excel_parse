@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 import sys
 import logging.config
-import inspect
+import traceback
 
 logging.config.dictConfig(settings.dictConfig)
 logger1 = logging.getLogger("scriptLogger")
@@ -31,22 +31,32 @@ def insert_data(resp_list):
     return len(monitor_list)
 
 
+def delete_data():
+    from models import Monitoring
+    from conn import db_session
+    db_session.query(Monitoring).delete()
+    db_session.commit()
+
+
 def get_data():
     r = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
     r = r[r.fetch == 1]
     resp_list = []
     added_amount = 0
+    error_count = 0
     for index, data in r.iterrows():
         try:
             res = requests.get(data.url, timeout=settings.TIMEOUT)
             resp_list.append((res, data))
         except requests.exceptions.RequestException as e:
-            stack_info = inspect.stack()
+            stack_info = traceback.format_exc()
             logger2.error(_(datetime.now(), e, data.url, stack_info))
+            error_count += 1
     if resp_list:
         added_amount = insert_data(resp_list)
     logger1.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
-                 f"Fetched: {len(r)}. Added: {added_amount}")
+                 f"Fetched: {len(r)} Added: {added_amount} "
+                 f"Errors: {error_count} ")
 
 
 if __name__ == "__main__":

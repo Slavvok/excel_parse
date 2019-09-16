@@ -43,7 +43,7 @@ dictConfig = {
         "loggers": {
             "scriptLogger": {
                 "handlers": ["fileHandler", "streamHandler"],
-                "lever": "INFO"
+                "level": "INFO"
             },
             "errorLogger": {
                 "handlers": ["exceptionHandler"],
@@ -66,6 +66,6 @@ class ExceptionLogging:
                      "error": {
                         "exception_type": type(self.exception).__name__,
                         "exception_value": self.exception.errno,
-                        "stack_info": self.stack_info.pop().filename,
+                        "stack_info": self.stack_info,
                      }}
         return json.dumps(error_log, indent=4)
