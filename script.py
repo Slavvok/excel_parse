@@ -1,12 +1,16 @@
-from conn import db_session, init_db
+from conn import db_session
 from models import *
 from datetime import datetime
 import settings
 import pandas as pd
-import requests
 import sys
 import logging.config
 import traceback
+from functools import wraps
+import time
+import asyncio
+import aiohttp
+import async_timeout
 
 logging.config.dictConfig(settings.dictConfig)
 logger1 = logging.getLogger("scriptLogger")
@@ -14,11 +18,41 @@ logger2 = logging.getLogger("errorLogger")
 _ = settings.ExceptionLogging
 
 
+def timewrap(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        f = func(*args, **kwargs)
+        end = time.time() - start
+        return f, end
+    return wrapper
+
+
+async def url_parse(session, data):
+    with async_timeout.timeout(settings.TIMEOUT):
+        try:
+            async with session.get(data.url) as resp:
+                await resp.release()
+                return resp, data
+        except Exception as e:
+            stack_info = traceback.format_exc()
+            logger2.error(_(datetime.now(), e, data.url, stack_info))
+
+
+async def multi_parse(loop):
+    r = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
+    r = r[r.fetch == 1]
+    async with aiohttp.ClientSession(loop=loop) as session:
+        tasks = [url_parse(session, data) for index, data in r.iterrows()]
+        m = await asyncio.gather(*tasks)
+        return zip(m, [data for index, data in r.iterrows()])
+
+
 def insert_data(resp_list):
     monitor_list = []
     for resp, data in resp_list:
         if not db_session.query(Monitoring).filter_by(label=data.label)\
-                .count():
+                .count() and resp:
             ts = datetime.now()
             response_time = resp.elapsed.total_seconds()
             status_code = resp.status_code
@@ -38,28 +72,20 @@ def delete_data():
     db_session.commit()
 
 
+@timewrap
 def get_data():
     r = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
     r = r[r.fetch == 1]
-    resp_list = []
-    added_amount = 0
-    error_count = 0
-    for index, data in r.iterrows():
-        try:
-            res = requests.get(data.url, timeout=settings.TIMEOUT)
-            resp_list.append((res, data))
-        except requests.exceptions.RequestException as e:
-            stack_info = traceback.format_exc()
-            logger2.error(_(datetime.now(), e, data.url, stack_info))
-            error_count += 1
-    if resp_list:
-        added_amount = insert_data(resp_list)
-    logger1.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
-                 f"Fetched: {len(r)} Added: {added_amount} "
-                 f"Errors: {error_count} ")
+    loop = asyncio.get_event_loop()
+    resp_list = loop.run_until_complete(multi_parse(loop))
+    added_amount = insert_data(resp_list)
+    return len(r), added_amount
 
 
 if __name__ == "__main__":
     if len(sys.argv) >= 1:
         settings.DEFAULT_EXCEL_FILE = sys.argv[1]
-    get_data()
+    data, tt = get_data()
+    logger1.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
+                 f"Fetched: {data[0]} Added: {data[1]} "
+                 f"Time: {tt}")
