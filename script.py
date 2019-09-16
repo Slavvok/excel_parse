@@ -17,7 +17,8 @@ _ = settings.ExceptionLogging
 def insert_data(resp_list):
     monitor_list = []
     for resp, data in resp_list:
-        if not db_session.query(Monitoring).filter_by(label=data.label).count():
+        if not db_session.query(Monitoring).filter_by(label=data.label)\
+                .count():
             ts = datetime.now()
             response_time = resp.elapsed.total_seconds()
             status_code = resp.status_code
