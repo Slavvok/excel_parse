@@ -13,11 +13,13 @@ class Monitoring(Base):
     status_code = Column(Integer, default=None)
     content_length = Column(Integer, default=None)
 
-    def __init__(self, ts, url, label, response_time,
-                 status_code, content_length):
-        self.ts = ts
-        self.url = url
-        self.label = label
-        self.response_time = response_time
-        self.status_code = status_code
-        self.content_length = content_length
+    def __init__(self, kwargs):
+        self.ts = kwargs['timestamp']
+        self.url = kwargs['url']
+        self.label = kwargs['label']
+        self.response_time = kwargs['response_time']
+        self.status_code = kwargs['status_code']
+        self.content_length = kwargs['content_length']
+
+    def __str__(self):
+        return

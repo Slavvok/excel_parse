@@ -18,7 +18,7 @@ dictConfig = {
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
             "error": {
-                "format": "%(message)s",
+                "format": "%(message)s"
             }
         },
         "handlers": {
@@ -45,7 +45,7 @@ dictConfig = {
                 "handlers": ["fileHandler", "streamHandler"],
                 "level": "INFO"
             },
-            "errorLogger": {
+            "exceptionLogger": {
                 "handlers": ["exceptionHandler"],
                 "level": "ERROR"
             }

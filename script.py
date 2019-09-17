@@ -13,52 +13,55 @@ import aiohttp
 import async_timeout
 
 logging.config.dictConfig(settings.dictConfig)
-logger1 = logging.getLogger("scriptLogger")
-logger2 = logging.getLogger("errorLogger")
+log_info = logging.getLogger("scriptLogger")
+log_except = logging.getLogger("exceptionLogger")
 _ = settings.ExceptionLogging
 
 
 def timewrap(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        start = time.time()
+        start_time = time.time()
         f = func(*args, **kwargs)
-        end = time.time() - start
-        return f, end
+        end_time = time.time() - start_time
+        return f, end_time
     return wrapper
 
 
-async def url_parse(session, data):
+async def url_parse(session, row):
     with async_timeout.timeout(settings.TIMEOUT):
         try:
-            async with session.get(data.url) as resp:
+            async with session.get(row.url) as resp:
                 await resp.release()
-                return resp, data
+                return resp, row
         except Exception as e:
             stack_info = traceback.format_exc()
-            logger2.error(_(datetime.now(), e, data.url, stack_info))
+            log_except.error(_(datetime.now(), e, row.url, stack_info))
 
 
 async def multi_parse(loop):
-    r = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
-    r = r[r.fetch == 1]
+    table = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
+    table = table[table.fetch == 1]
     async with aiohttp.ClientSession(loop=loop) as session:
-        tasks = [url_parse(session, data) for index, data in r.iterrows()]
-        m = await asyncio.gather(*tasks)
-        return list(zip(m, [data for index, data in r.iterrows()]))
+        tasks = [url_parse(session, row) for index, row in table.iterrows()]
+        resp_list = await asyncio.gather(*tasks)
+        return list(zip(resp_list, [row for index, row in table.iterrows()]))
 
 
 def insert_data(resp_list):
     monitor_list = []
-    for resp, data in resp_list:
-        if not db_session.query(Monitoring).filter_by(label=data.label)\
+    for resp, row in resp_list:
+        if not db_session.query(Monitoring).filter_by(label=row.label)\
                 .count() and resp:
-            ts = datetime.now()
-            response_time = resp.elapsed.total_seconds()
-            status_code = resp.status_code
-            content_length = len(resp.content)
-            m = Monitoring(ts, data.url, data.label, response_time,
-                           status_code, content_length)
+            params = dict(
+                timestamp=datetime.now(),
+                url=row.url,
+                label=row.label,
+                response_time=None,
+                status_code=resp[0].status,
+                content_length=resp[0].content_length
+            )
+            m = Monitoring(params)
             monitor_list.append(m)
     db_session.add_all(monitor_list)
     db_session.commit()
@@ -83,7 +86,7 @@ def get_data():
 if __name__ == "__main__":
     if len(sys.argv) >= 1:
         settings.DEFAULT_EXCEL_FILE = sys.argv[1]
-    data, tt = get_data()
-    logger1.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
-                 f"Fetched: {data[0]} Added: {data[1]} "
-                 f"Time: {tt} ")
+    data, elapsed_time = get_data()
+    log_info.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
+                  f"Fetched: {data[0]} Added: {data[1]} "
+                  f"Time: {elapsed_time} ")
