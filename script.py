@@ -45,7 +45,7 @@ async def multi_parse(loop):
     async with aiohttp.ClientSession(loop=loop) as session:
         tasks = [url_parse(session, data) for index, data in r.iterrows()]
         m = await asyncio.gather(*tasks)
-        return zip(m, [data for index, data in r.iterrows()])
+        return list(zip(m, [data for index, data in r.iterrows()]))
 
 
 def insert_data(resp_list):
@@ -74,12 +74,10 @@ def delete_data():
 
 @timewrap
 def get_data():
-    r = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
-    r = r[r.fetch == 1]
     loop = asyncio.get_event_loop()
     resp_list = loop.run_until_complete(multi_parse(loop))
     added_amount = insert_data(resp_list)
-    return len(r), added_amount
+    return len(resp_list), added_amount
 
 
 if __name__ == "__main__":
@@ -88,4 +86,4 @@ if __name__ == "__main__":
     data, tt = get_data()
     logger1.info(f"Filename: {settings.DEFAULT_EXCEL_FILE} "
                  f"Fetched: {data[0]} Added: {data[1]} "
-                 f"Time: {tt}")
+                 f"Time: {tt} ")
