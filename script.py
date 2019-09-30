@@ -45,7 +45,7 @@ async def multi_parse(loop):
     async with aiohttp.ClientSession(loop=loop) as session:
         tasks = [url_parse(session, row) for row in table.itertuples()]
         resp_list = await asyncio.gather(*tasks)
-        return list(zip(resp_list, [row for index, row in table.iterrows()]))
+        return list(zip(resp_list, [row for row in table.itertuples()]))
 
 
 def insert_data(resp_list):
