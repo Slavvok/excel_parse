@@ -43,7 +43,7 @@ async def multi_parse(loop):
     table = pd.read_excel(settings.DEFAULT_EXCEL_FILE, index_col=None)
     table = table[table.fetch == 1]
     async with aiohttp.ClientSession(loop=loop) as session:
-        tasks = [url_parse(session, row) for index, row in table.iterrows()]
+        tasks = [url_parse(session, row) for row in table.itertuples()]
         resp_list = await asyncio.gather(*tasks)
         return list(zip(resp_list, [row for index, row in table.iterrows()]))
 
@@ -66,13 +66,6 @@ def insert_data(resp_list):
     db_session.add_all(monitor_list)
     db_session.commit()
     return len(monitor_list)
-
-
-def delete_data():
-    from models import Monitoring
-    from conn import db_session
-    db_session.query(Monitoring).delete()
-    db_session.commit()
 
 
 @timewrap
