@@ -1,7 +1,7 @@
 import logging
 import json
 
-TIMEOUT = 1
+TIMEOUT = 10
 THREADS_AMOUNT = 5
 
 FILE_LOGGING = 'logs/logs.log'
@@ -45,7 +45,7 @@ dictConfig = {
                 "handlers": ["fileHandler", "streamHandler"],
                 "level": "INFO"
             },
-            "errorLogger": {
+            "exceptionLogger": {
                 "handlers": ["exceptionHandler"],
                 "level": "ERROR"
             }
