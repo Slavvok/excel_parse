@@ -22,4 +22,4 @@ class Monitoring(Base):
         self.content_length = kwargs['content_length']
 
     def __str__(self):
-        return
+        return f"{self.url} {self.label}"
